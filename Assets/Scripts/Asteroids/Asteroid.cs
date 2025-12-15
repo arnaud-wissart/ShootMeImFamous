@@ -14,6 +14,9 @@ namespace SpaceRocks
         [SerializeField]
         private Asteroid asteroidPrefab;
 
+        [SerializeField]
+        private float spawnImpulse = 1.2f;
+
         private Rigidbody _rigidbody;
         private float _baseDriftSpeed;
         private bool _initialized;
@@ -51,13 +54,16 @@ namespace SpaceRocks
             switch (size)
             {
                 case AsteroidSize.Small:
+                    RegisterScore();
                     Destroy(gameObject);
                     break;
                 case AsteroidSize.Medium:
+                    RegisterScore();
                     SpawnFragments(AsteroidSize.Small, 2);
                     Destroy(gameObject);
                     break;
                 case AsteroidSize.Large:
+                    RegisterScore();
                     SpawnFragments(AsteroidSize.Medium, 2);
                     Destroy(gameObject);
                     break;
@@ -78,7 +84,18 @@ namespace SpaceRocks
                 var spawnPosition = transform.position + offset;
                 var fragment = Instantiate(asteroidPrefab, spawnPosition, Quaternion.identity);
                 fragment.Initialize(targetSize, _baseDriftSpeed);
+                fragment.ApplySpawnImpulse(transform.position);
             }
+        }
+
+        private void RegisterScore()
+        {
+            if (GameManager.Instance == null)
+            {
+                return;
+            }
+
+            GameManager.Instance.RegisterAsteroidDestroyed(size);
         }
 
         private void ApplySizeSettings()
@@ -93,6 +110,35 @@ namespace SpaceRocks
             randomDirection.y = 0f;
             randomDirection.Normalize();
             _rigidbody.velocity = randomDirection * driftSpeed;
+        }
+
+        private void ApplySpawnImpulse(Vector3 parentPosition)
+        {
+            if (_rigidbody == null || spawnImpulse <= 0f)
+            {
+                return;
+            }
+
+            var separationDirection = (transform.position - parentPosition).normalized;
+            if (separationDirection == Vector3.zero)
+            {
+                separationDirection = Random.insideUnitSphere;
+                separationDirection.y = 0f;
+            }
+
+            separationDirection.y = 0f;
+            separationDirection.Normalize();
+
+            if (separationDirection == Vector3.zero)
+            {
+                separationDirection = Vector3.forward;
+            }
+
+            var randomSpread = Random.insideUnitSphere * 0.3f;
+            randomSpread.y = 0f;
+
+            var impulseDirection = (separationDirection + randomSpread).normalized;
+            _rigidbody.AddForce(impulseDirection * spawnImpulse, ForceMode.Impulse);
         }
 
         private static float GetScale(AsteroidSize asteroidSize)

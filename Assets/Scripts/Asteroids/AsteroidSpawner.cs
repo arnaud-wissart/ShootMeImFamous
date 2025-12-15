@@ -22,6 +22,9 @@ namespace SpaceRocks
         [SerializeField]
         private float despawnDistance = 70f;
 
+        [SerializeField]
+        private float minimumSpawnDistanceFromPlayer = 5f;
+
         private void Start()
         {
             for (var i = 0; i < initialCount; i++)
@@ -56,10 +59,33 @@ namespace SpaceRocks
 
         private Vector3 GetSpawnPosition()
         {
-            var angle = Random.Range(0f, Mathf.PI * 2f);
-            var radius = Random.Range(spawnRadiusMin, spawnRadiusMax);
-            var offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radius;
-            return player.position + offset;
+            const int maxAttempts = 10;
+            var lastPosition = player.position;
+
+            for (var attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                var angle = Random.Range(0f, Mathf.PI * 2f);
+                var radius = Random.Range(spawnRadiusMin, spawnRadiusMax);
+                var offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radius;
+                var candidate = player.position + offset;
+                lastPosition = candidate;
+
+                if (Vector3.Distance(player.position, candidate) >= minimumSpawnDistanceFromPlayer)
+                {
+                    return candidate;
+                }
+            }
+
+            var fallbackDirection = (lastPosition - player.position).normalized;
+            if (fallbackDirection == Vector3.zero)
+            {
+                fallbackDirection = Random.insideUnitSphere;
+                fallbackDirection.y = 0f;
+            }
+
+            fallbackDirection.y = 0f;
+            fallbackDirection.Normalize();
+            return player.position + fallbackDirection * Mathf.Max(minimumSpawnDistanceFromPlayer, spawnRadiusMin);
         }
 
         private AsteroidSize GetRandomSize()
